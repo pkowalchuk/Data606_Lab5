@@ -1,0 +1,317 @@
+---
+title: "Data 606 - Lab 5"
+author: "Peter Kowalchuk"
+date: "10/19/2018"
+output:
+  html_document:
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+  pdf_document: default
+---
+
+#Inference for numerical data
+
+## North Carolina births
+
+In 2004, the state of North Carolina released a large data set containing 
+information on births recorded in this state. This data set is useful to 
+researchers studying the relation between habits and practices of expectant 
+mothers and the birth of their children. We will work with a random sample of 
+observations from this data set.
+
+## Exploratory analysis
+
+Load the `nc` data set into our workspace.
+
+```{r load-data, eval=TRUE}
+load("more/nc.RData")
+```
+
+We have observations on 13 different variables, some categorical and some 
+numerical. The meaning of each variable is as follows.
+
+variable         | description
+---------------- | -----------
+`fage`           | father's age in years.
+`mage`           | mother's age in years.
+`mature`         | maturity status of mother.
+`weeks`          | length of pregnancy in weeks.
+`premie`         | whether the birth was classified as premature (premie) or full-term.
+`visits`         | number of hospital visits during pregnancy.
+`marital`        | whether mother is `married` or `not married` at birth.
+`gained`         | weight gained by mother during pregnancy in pounds.
+`weight`         | weight of the baby at birth in pounds.
+`lowbirthweight` | whether baby was classified as low birthweight (`low`) or not (`not low`).
+`gender`         | gender of the baby, `female` or `male`.
+`habit`          | status of the mother as a `nonsmoker` or a `smoker`.
+`whitemom`       | whether mom is `white` or `not white`.
+
+1.  What are the cases in this data set? How many cases are there in our sample?
+
+Each case is an observation of dad's age together with other mother and baby characteristics. There is a total of 1000 cases. 
+
+```{r}
+head(nc)
+nrow(nc)
+```
+
+
+As a first step in the analysis, we should consider summaries of the data. This
+can be done using the `summary` command:
+
+```{r summary, eval=TRUE}
+summary(nc)
+```
+
+As you review the variable summaries, consider which variables are categorical 
+and which are numerical. For numerical variables, are there outliers? If you 
+aren't sure or want to take a closer look at the data, make a graph.
+
+Categorical variables: mature, premie, maritial, lowbirthrate, gender, habit, whitemom
+
+Numerical: (outliners defined as having a min or max more than 2 times the standard deviations away from the mean)
+fage: 
+```{r}
+testOutliers<-function(data) {
+  m<-mean(data,na.rm=TRUE)
+  m
+  s<-sd(data,na.rm=TRUE)
+  s
+  min<-min(data,na.rm=TRUE)
+  min
+  max<-max(data,na.rm=TRUE)
+  max
+  if (min<m-2*s | max>m+2*s) {
+    print("there are outliers")
+  } else {
+    print("no outliers")
+  }
+}
+
+testOutliers(nc$fage)
+```
+
+mage: 
+
+```{r}
+testOutliers(nc$mage)
+```
+
+weeks: 
+
+```{r}
+testOutliers(nc$weeks)
+```
+
+visits: 
+
+```{r}
+testOutliers(nc$visits)
+```
+
+gained: 
+
+```{r}
+testOutliers(nc$gained)
+```
+
+weight:
+```{r}
+testOutliers(nc$weight)
+```
+
+Consider the possible relationship between a mother's smoking habit and the 
+weight of her baby. Plotting the data is a useful first step because it helps 
+us quickly visualize trends, identify strong associations, and develop research
+questions.
+
+2.  Make a side-by-side boxplot of `habit` and `weight`. What does the plot 
+highlight about the relationship between these two variables?
+
+The side by side box plot lets us compare the difference between the means and also the difference between the spread of values in both data sets.
+
+```{r}
+boxplot(nc$weight ~ nc$habit)
+```
+
+
+The box plots show how the medians of the two distributions compare, but we can
+also compare the means of the distributions using the following function to 
+split the `weight` variable into the `habit` groups, then take the mean of each
+using the `mean` function.
+
+```{r by-means, eval=TRUE}
+by(nc$weight, nc$habit, mean)
+```
+
+There is an observed difference, but is this difference statistically 
+significant? In order to answer this question we will conduct a hypothesis test
+.
+
+## Inference
+
+3.  Check if the conditions necessary for inference are satisfied. Note that 
+you will need to obtain sample sizes to check the conditions. You can compute 
+the group size using the same `by` command above but replacing `mean` with 
+`length`.
+
+As can be seen below both distributions for smoking and non-smoking seem normal, although with some skew. This can be seen in both the distribution and probability plots. But the sample sizes are large enough, much greater than 30, so some skew is acceptable. Another condition is that the samples need to be random and independent. Because they have been taking from a large population, all births in the state, we can assume they do not represent a large proportion of the population, more than 10%, so they are independent - according to this site the number of births in North Carolina is consistently over 150k  https://www.marchofdimes.org/peristats/ViewSubtopic.aspx?reg=37&top=2&stop=1&lev=1&slev=4&obj=1. We have also no reason to assume there was any relationship between the subjects in the samples, so they are taken at random and are independent.
+
+```{r}
+by(nc$weight, nc$habit, length)
+
+h<-hist(nc$weight[nc$habit == "smoker"], main = "Weight for Smoking Mothers", xlab = "Weight",freq = FALSE)
+x <- seq(0, 12, by = 0.01)
+y <- dnorm(x,mean(nc$weight[nc$habit == "smoker"],na.rm=TRUE),sd(nc$weight[nc$habit == "smoker"],na.rm=TRUE))
+lines(x = x, y = y, col = "blue")
+qqnorm(nc$weight[nc$habit == "smoker"])
+qqline(nc$weight[nc$habit == "smoker"])
+
+h<-hist(nc$weight[nc$habit == "nonsmoker"], main = "Weight for Non-Smoking Mothers", xlab = "Weight",freq = FALSE)
+x <- seq(0, 12, by = 0.01)
+y <- dnorm(x,mean(nc$weight[nc$habit == "smoker"],na.rm=TRUE),sd(nc$weight[nc$habit == "smoker"],na.rm=TRUE))
+lines(x = x, y = y, col = "blue")
+qqnorm(nc$weight[nc$habit == "nonsmoker"])
+qqline(nc$weight[nc$habit == "nonsmoker"])
+```
+
+
+4.  Write the hypotheses for testing if the average weights of babies born to 
+smoking and non-smoking mothers are different.
+
+Ho: the average weight of babies born to smoking and non-smoking mothers are not different.   
+  $\mu_{smoking}$ = $\mu_{non\_smoking}$
+    
+Ha: the average weight of babies born to smoking and non-smoking mothers are different.   
+  $\mu_{smoking}$ $\neq$ $\mu_{non\_smoking}$
+
+
+Next, we introduce a new function, `inference`, that we will use for conducting
+hypothesis tests and constructing confidence intervals. 
+
+```{r inf-weight-habit-ht, eval=TRUE, tidy=FALSE}
+inference(y = nc$weight, x = nc$habit, est = "mean", type = "ht", null = 0, 
+          alternative = "twosided", method = "theoretical")
+```
+
+Let's pause for a moment to go through the arguments of this custom function. 
+The first argument is `y`, which is the response variable that we are 
+interested in: `nc$weight`. The second argument is the explanatory variable, 
+`x`, which is the variable that splits the data into two groups, smokers and 
+non-smokers: `nc$habit`. The third argument, `est`, is the parameter we're 
+interested in: `"mean"` (other options are `"median"`, or `"proportion"`.) Next
+we decide on the `type` of inference we want: a hypothesis test (`"ht"`) or a 
+confidence interval (`"ci"`). When performing a hypothesis test, we also need 
+to supply the `null` value, which in this case is `0`, since the null 
+hypothesis sets the two population means equal to each other. The `alternative`
+hypothesis can be `"less"`, `"greater"`, or `"twosided"`. Lastly, the `method` 
+of inference can be `"theoretical"` or `"simulation"` based.
+
+5.  Change the `type` argument to `"ci"` to construct and record a confidence 
+interval for the difference between the weights of babies born to smoking and 
+non-smoking mothers.
+
+```{r}
+inference(y = nc$weight, x = nc$habit, est = "mean", type = "ci", null = 0, 
+          alternative = "twosided", method = "theoretical")
+```
+
+
+By default the function reports an interval for ($\mu_{nonsmoker} - \mu_{smoker}$)
+. We can easily change this order by using the `order` argument:
+
+```{r inf-weight-habit-ci, eval=TRUE, tidy=FALSE}
+inference(y = nc$weight, x = nc$habit, est = "mean", type = "ci", null = 0, 
+          alternative = "twosided", method = "theoretical", 
+          order = c("smoker","nonsmoker"))
+```
+
+* * *
+
+## On your own
+
+1-   Calculate a 95% confidence interval for the average length of pregnancies 
+(`weeks`) and interpret it in context. Note that since you're doing inference 
+on a single population parameter, there is no explanatory variable, so you can 
+omit the `x` variable from the function.
+
+As can be seen below the mean for the number of pregnancy weeks is 38.3347, and we are 95% confident the real population mean for pregnancy weeks is between 38.1528 and 38.5165 
+
+```{r}
+inference(y = nc$weeks, est = "mean", type = "ci", null = 0, 
+          alternative = "twosided", method = "theoretical")
+```
+
+2-   Calculate a new confidence interval for the same parameter at the 90% 
+confidence level. You can change the confidence level by adding a new argument 
+to the function: `conflevel = 0.90`.
+
+As can be seen below the mean for the number of pregnancy weeks is 38.3347, and we are 90% confident the real population mean for pregnancy weeks is between 38.182 and 38.4873 
+
+```{r}
+inference(y = nc$weeks, est = "mean", type = "ci", null = 0, 
+          alternative = "twosided", method = "theoretical",conflevel = 0.90)
+```
+
+3-   Conduct a hypothesis test evaluating whether the average weight gained by 
+younger mothers is different than the average weight gained by mature mothers.
+
+We are using a 95% confidence level. As can be seen below, the p-value for this test is greated than 0.05, which means we do not reject the hull. We have no indication (statistical evidence) that there is a weight gain difference between these two groups. We get a similar result calculating the 95% confidence interval, where the null or a difference of zero is within the interval.
+
+```{r}
+inference(y = nc$gained, x = nc$mature, est = "mean", type = "ht", null = 0, 
+          alternative = "twosided", method = "theoretical")
+
+inference(y = nc$gained, x = nc$mature, est = "mean", type = "ci", null = 0, 
+          alternative = "twosided", method = "theoretical")
+```
+
+4-   Now, a non-inference task: Determine the age cutoff for younger and mature 
+mothers. Use a method of your choice, and explain how your method works.
+
+We look for the max of young mons and the min for mature mons to find the cutoff. We that young mons ahve up to 34 years, and mature mons stant at 35 years.
+
+```{r}
+max(subset(nc,nc$mature == "younger mom")$mage)
+min(subset(nc,nc$mature == "mature mom")$mage)
+```
+
+5-   Pick a pair of numerical and categorical variables and come up with a 
+research question evaluating the relationship between these variables. 
+Formulate the question in a way that it can be answered using a hypothesis test
+and/or a confidence interval. Answer your question using the `inference` 
+function, report the statistical results, and also provide an explanation in 
+plain language.
+
+We ask ourselves if white mons and non white mons have babies are born with different average weights. We state our hypothesis as:
+
+Ho: white mon babies are the same average weight as non white mons    
+  $\mu_{weight\_white\_mon}$ = $\mu_{weight\_non\_white\_mon}$    
+Ha: white mon babies are not the same average weight as non white mons    
+  $\mu_{weight\_white\_mon}$ $\neq$ $\mu_{weight\_non\_white\_mon}$   
+
+We run both p-value and confidence interval.
+
+For p-value we find it to be very small, almost zero: p-val is 7.142018e-07   
+Because the p-value is very small, we reject the null and conclude that we are confident that there is a difference between the average weight of white and non-weight moms.
+
+Looking at the confidence interval analysis we arrive at the same conclusion. Because zero difference between the means of the weights of white and non-white mons is not in the interval, we reject the null and thus also conclude there is a difference between the average weights a white and non white mons.
+
+
+```{r}
+inference(y = nc$weight, x = nc$whitemom, est = "mean", type = "ht", null = 0, 
+          alternative = "twosided", method = "theoretical")
+
+
+inference(y = nc$weight, x = nc$whitemom, est = "mean", type = "ci", null = 0, 
+          alternative = "twosided", method = "theoretical")
+```
+
+
+<div id="license">
+This is a product of OpenIntro that is released under a [Creative Commons 
+Attribution-ShareAlike 3.0 Unported](http://creativecommons.org/licenses/by-sa/3.0).
+This lab was adapted for OpenIntro by Mine &Ccedil;etinkaya-Rundel from a lab 
+written by the faculty and TAs of UCLA Statistics.
+</div>
